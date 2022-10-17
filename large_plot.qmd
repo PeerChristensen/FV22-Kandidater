@@ -1,0 +1,60 @@
+---
+title: "Kandidater til Folketinget 2022"
+author: "Peer Christensen"
+format: html
+editor: visual
+---
+
+*Hvem deler holdninger med hvem?*
+
+Grafen viser hvor langt kandidaterne og partierne er fra hinanden baseret på en PCA-analyse af 823 besvarelser i DRs kandidattest.
+
+```{r}
+#| echo: false
+#| warninbg: false
+#| message: false
+#| fig-height: 10
+#| column: screen
+
+library(tidyverse)
+library(rvest)
+library(RSelenium)
+library(plotly)
+
+candidates_df <- read_csv("data/candidates_data_numeric.csv") 
+
+candidates_df <- candidates_df %>% 
+  replace(is.na(.), 0)
+
+candidates_pca <- candidates_df %>%
+  select_if(is.numeric) %>%
+  prcomp(center = TRUE,scale. = TRUE)
+  
+centroids <-  candidates_df %>%
+  select(!starts_with("Q")) %>%
+  bind_cols(candidates_pca$x) %>%
+  group_by(parti) %>%
+  summarise(PC1_m = mean(PC1),
+            PC2_m = mean(PC2))
+
+suppressWarnings(
+    
+p <- candidates_df %>%
+  select(!starts_with("Q")) %>%
+  bind_cols(candidates_pca$x) %>%
+  mutate(txt= glue::glue("{navn}\n{parti}\n{kreds}")) %>%
+  ggplot(aes(PC1, PC2, colour=parti)) +
+  geom_point(aes(text = txt)) +
+  geom_point(data=centroids, aes(x=PC1_m, y=PC2_m,size=5,text=parti),shape=1) +
+  geom_text(data=centroids, aes(x=PC1_m, y=PC2_m,label=parti,size=15, fontface = "bold")) +
+  scale_color_viridis_d(option="C") +
+  stat_ellipse() +
+  theme_minimal() +
+  theme(legend.title = element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.text = element_blank())
+)
+
+ggplotly(p, tooltip = "text")
+```
